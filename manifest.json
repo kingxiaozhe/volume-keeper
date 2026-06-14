@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5mkYdz9v1xqxcldVfne1+7ZfmM4Mo5jYhdZ2TRqvL2BO5o26s9sVqD4ggGS94Bo51drawhDDggwdaBIWT7dgXWRYF/Xw4l7AVwSecbo31FOPzMMy0ArUidrGp7yCNw6BNiSY9QCfGiMDaLkYdcEhg3q0zi0Qg90aXLesXtB2HbB7gR7/e9RZr4t1UZaqiscuzKx/BnYohBnfPFSkixz7ZLxxYAFPFHYN3JPvOEaeKn71/s25Mhb6EyGBnelnoLh80hmn4ixiFWu7godQmSD8P+MmXt/cJGnFd3d4B001K/cCYsYV+CqFqq/weA+VsRleWdyaBKtxcQg3VqWVlDDR9QIDAQAB",
+  "name": "Volume Keeper",
+  "version": "0.1.0",
+  "description": "Boost or lower volume per site — remembers your setting for each website, never breaks fullscreen.",
+  "permissions": ["storage"],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "all_frames": true,
+      "run_at": "document_start",
+      "js": ["content.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Volume Keeper"
+  }
+}

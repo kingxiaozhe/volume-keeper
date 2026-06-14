@@ -1,0 +1,8 @@
+# Never commit the extension signing key — it lets others publish updates as you.
+*.pem
+extension.pem
+
+# Tooling / OS noise
+node_modules/
+.DS_Store
+*.log
