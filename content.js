@@ -1,43 +1,47 @@
-// Volume Keeper — content script.
-// Routes every <video>/<audio> on the page through a Web Audio gain + EQ node,
-// so we can boost/lower volume WITHOUT chrome.tabCapture (which is what breaks
-// fullscreen and shows the "sharing" indicator in tabCapture-based competitors).
+// Volume Keeper — content script (ISOLATED world).
 //
-// Three P0s this solves vs. the incumbent:
-//   1. Fullscreen never breaks   -> no tabCapture, we only touch media elements.
-//   2. Per-site memory           -> settings persisted by origin, auto-restored.
-//   3. No sudden volume blast     -> gain changes ramp smoothly (setTargetAtTime).
+// Runs in an isolated world ON PURPOSE: a separate JS realm whose AudioContext
+// does NOT collide with the page's own Web Audio graph. (YouTube already owns its
+// <video> via Web Audio in the MAIN world; a MAIN-world createMediaElementSource
+// throws and silences playback. The isolated world avoids that conflict — this is
+// what makes boosting work on YouTube, the #1 use case.)
+//
+// Audio graph (built lazily, only when the user wants a non-default value):
+//   each <video>/<audio> -> [shared] gain -> EQ biquad -> limiter -> analyser -> destination
 
 (() => {
-  const MAX_GAIN = 6; // 600%
-  const RAMP = 0.06; // seconds — smooth enough to kill pops, fast enough to feel instant
-  const KEY = "site:" + location.origin;
+  const MAX_GAIN = 6;
+  const RAMP = 0.06; // gain ramp (s) -> kills the "sudden blast" the incumbent has
+  const SITE_KEY = "site:" + location.origin;
+  const DEFAULT_KEY = "default";
 
-  // EQ presets mirror the incumbent's loved "voice"/"bass" boosts.
   const EQ = {
     none: { type: "peaking", frequency: 0, Q: 1, gain: 0 },
     voice: { type: "peaking", frequency: 1500, Q: 1, gain: 12 },
     bass: { type: "lowshelf", frequency: 350, Q: 1, gain: 6 },
   };
 
-  let ctx = null;
-  let gainNode = null;
-  let biquad = null;
+  let ctx = null, gain = null, biquad = null, limiter = null, analyser = null;
   const hooked = new WeakSet();
+  let state = { gain: 1, eq: "none", limiter: true };
 
-  // Desired state. Loaded from storage; defaults are a no-op (100%, no EQ).
-  let state = { gain: 1, eq: "none" };
+  const isActive = () => state.gain !== 1 || state.eq !== "none";
 
-  function ensureGraph() {
+  function buildGraph() {
     if (ctx) return;
     ctx = new (window.AudioContext || window.webkitAudioContext)();
-    gainNode = ctx.createGain();
-    gainNode.gain.value = state.gain;
+    gain = ctx.createGain();
+    gain.gain.value = state.gain;
     biquad = ctx.createBiquadFilter();
+    limiter = ctx.createDynamicsCompressor();
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    gain.connect(biquad);
+    biquad.connect(limiter);
+    limiter.connect(analyser);
+    analyser.connect(ctx.destination);
     applyEq();
-    // sources -> gain -> biquad -> destination
-    gainNode.connect(biquad);
-    biquad.connect(ctx.destination);
+    applyLimiter();
   }
 
   function applyEq() {
@@ -49,89 +53,101 @@
     biquad.gain.value = p.gain;
   }
 
+  // Brick-wall-ish limiter to tame the "over-boost distorts" complaint. Disabled =
+  // transparent (ratio 1) so the signal passes through unchanged.
+  function applyLimiter() {
+    if (!limiter) return;
+    if (state.limiter) {
+      limiter.threshold.value = -1.0;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.003;
+      limiter.release.value = 0.05;
+    } else {
+      limiter.threshold.value = 0;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 1;
+    }
+  }
+
   function applyGain() {
-    if (!gainNode) return;
+    if (!gain) return;
     if (ctx.state === "suspended") ctx.resume();
-    // Ramp instead of instant assignment -> no "sudden blast" bug.
-    gainNode.gain.setTargetAtTime(state.gain, ctx.currentTime, RAMP);
+    gain.gain.setTargetAtTime(state.gain, ctx.currentTime, RAMP);
   }
 
   function hook(el) {
-    if (hooked.has(el)) return;
+    if (hooked.has(el) || !isActive()) return;
     try {
-      ensureGraph();
-      // crossOrigin hint reduces tainting on CORS-capable servers.
-      if (!el.crossOrigin) el.crossOrigin = "anonymous";
-      const src = ctx.createMediaElementSource(el);
-      src.connect(gainNode);
+      buildGraph();
+      ctx.createMediaElementSource(el).connect(gain);
       hooked.add(el);
     } catch (e) {
-      // createMediaElementSource throws if the element was already captured
-      // elsewhere; ignore and leave that element on its default output.
+      // Already routed, or protected media — leave it on the default output.
     }
   }
 
   function hookAll() {
+    if (!isActive()) return;
     document.querySelectorAll("video, audio").forEach(hook);
-  }
-
-  // Only build the audio graph once the user actually wants a non-default value;
-  // a page at 100%/no-EQ stays completely untouched (matches "only active when working").
-  function activateIfNeeded() {
-    if (state.gain === 1 && state.eq === "none") return;
-    hookAll();
-    applyGain();
-    applyEq();
   }
 
   function setState(next) {
     if (typeof next.gain === "number") state.gain = Math.max(0, Math.min(MAX_GAIN, next.gain));
     if (typeof next.eq === "string" && EQ[next.eq]) state.eq = next.eq;
-    ensureGraph();
-    hookAll();
-    applyGain();
-    applyEq();
-    persist();
+    if (typeof next.limiter === "boolean") state.limiter = next.limiter;
+    if (isActive()) {
+      buildGraph();
+      hookAll();
+      applyGain();
+      applyEq();
+      applyLimiter();
+    }
   }
 
   function persist() {
-    try {
-      chrome.storage.local.set({ [KEY]: { gain: state.gain, eq: state.eq } });
-    } catch (e) {}
+    try { chrome.storage.local.set({ [SITE_KEY]: { ...state } }); } catch (e) {}
   }
 
-  // Restore this site's saved setting, then keep watching for new media.
+  function probe() {
+    if (!analyser) return { rms: 0, gain: state.gain, ctx: ctx ? ctx.state : "none", media: document.querySelectorAll("video,audio").length };
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteTimeDomainData(buf);
+    let sum = 0;
+    for (const v of buf) { const d = v - 128; sum += d * d; }
+    return { rms: Number(Math.sqrt(sum / buf.length).toFixed(2)), gain: state.gain, ctx: ctx.state, media: document.querySelectorAll("video,audio").length };
+  }
+
+  // Restore: site-specific setting wins; otherwise inherit the global default.
   function init() {
     try {
-      chrome.storage.local.get(KEY, (res) => {
-        const saved = res && res[KEY];
+      chrome.storage.local.get([SITE_KEY, DEFAULT_KEY], (res) => {
+        const saved = (res && res[SITE_KEY]) || (res && res[DEFAULT_KEY]);
         if (saved) {
           if (typeof saved.gain === "number") state.gain = saved.gain;
           if (typeof saved.eq === "string") state.eq = saved.eq;
+          if (typeof saved.limiter === "boolean") state.limiter = saved.limiter;
         }
-        activateIfNeeded();
+        if (isActive()) { buildGraph(); hookAll(); applyGain(); applyEq(); applyLimiter(); }
       });
     } catch (e) {}
 
-    const mo = new MutationObserver(() => {
-      if (state.gain !== 1 || state.eq !== "none") hookAll();
-    });
+    const mo = new MutationObserver(hookAll);
     const start = () => mo.observe(document.documentElement, { childList: true, subtree: true });
     if (document.documentElement) start();
     else document.addEventListener("DOMContentLoaded", start);
 
-    // Resume the context on the first user gesture (autoplay policy).
-    const resume = () => {
-      if (ctx && ctx.state === "suspended") ctx.resume();
-    };
-    window.addEventListener("click", resume, { once: false, passive: true });
+    const resume = () => { if (ctx && ctx.state === "suspended") ctx.resume(); };
+    window.addEventListener("click", resume, { passive: true });
     window.addEventListener("keydown", resume, { passive: true });
   }
 
   chrome.runtime.onMessage.addListener((msg, _s, send) => {
-    if (msg.type === "getState") send({ gain: state.gain, eq: state.eq, origin: location.origin });
-    else if (msg.type === "setState") { setState(msg); send({ ok: true, gain: state.gain, eq: state.eq }); }
-    return true;
+    if (msg.type === "getState") send({ ...state, origin: location.origin });
+    else if (msg.type === "setState") { setState(msg); persist(); send({ ok: true, ...state }); }
+    else if (msg.type === "setDefault") { try { chrome.storage.local.set({ [DEFAULT_KEY]: { ...state } }); } catch (e) {} send({ ok: true }); }
+    else if (msg.type === "reset") { setState({ gain: 1, eq: "none" }); persist(); send({ ok: true, ...state }); }
+    else if (msg.type === "probe") send(probe());
   });
 
   init();

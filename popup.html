@@ -4,18 +4,21 @@
   <meta charset="utf-8">
   <style>
     :root { color-scheme: light dark; }
-    body { width: 260px; margin: 0; padding: 16px; font-family: system-ui, sans-serif; }
+    body { width: 264px; margin: 0; padding: 16px; font-family: system-ui, sans-serif; }
     h1 { font-size: 13px; margin: 0 0 2px; font-weight: 600; }
     .host { font-size: 11px; opacity: .6; margin-bottom: 14px; word-break: break-all; }
     .row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-    .pct { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 15px; }
+    .pct { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 16px; }
     input[type=range] { width: 100%; margin: 4px 0 14px; }
-    .eq { display: flex; gap: 6px; }
+    .eq { display: flex; gap: 6px; margin-bottom: 12px; }
     .eq button { flex: 1; padding: 6px 0; font-size: 12px; border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
       background: transparent; color: inherit; border-radius: 6px; cursor: pointer; }
     .eq button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
-    .reset { margin-top: 12px; width: 100%; padding: 6px 0; font-size: 12px; border: none; border-radius: 6px;
+    .opt { display: flex; align-items: center; gap: 7px; font-size: 12px; margin-bottom: 8px; cursor: pointer; opacity: .9; }
+    .opt input { margin: 0; }
+    .reset { margin-top: 8px; width: 100%; padding: 6px 0; font-size: 12px; border: none; border-radius: 6px;
       background: color-mix(in srgb, currentColor 12%, transparent); color: inherit; cursor: pointer; }
+    .hint { font-size: 10px; opacity: .5; margin-top: 10px; }
     .disabled { opacity: .5; pointer-events: none; }
   </style>
 </head>
@@ -24,13 +27,16 @@
   <div class="host" id="host">…</div>
   <div id="ui">
     <div class="row"><span>Volume</span><span class="pct" id="pct">100%</span></div>
-    <input id="slider" type="range" min="0" max="600" step="5" value="100">
+    <input id="slider" type="range" min="0" max="600" step="5" value="100" title="Scroll to fine-tune">
     <div class="eq">
       <button data-eq="none" class="active">Normal</button>
       <button data-eq="voice">Voice</button>
       <button data-eq="bass">Bass</button>
     </div>
+    <label class="opt"><input type="checkbox" id="limiter" checked> Anti-distortion (limiter)</label>
+    <label class="opt"><input type="checkbox" id="asDefault"> Use these settings for new sites</label>
     <button class="reset" id="reset">Reset to 100%</button>
+    <div class="hint">Scroll over the slider to fine-tune by 5%.</div>
   </div>
   <script src="popup.js"></script>
 </body>
