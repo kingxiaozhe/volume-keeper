@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Volume Keeper — Privacy Policy</title>
+  <style>
+    body { max-width: 720px; margin: 40px auto; padding: 0 20px; font-family: system-ui, sans-serif; line-height: 1.6; color: #222; }
+    h1 { font-size: 24px; } h2 { font-size: 18px; margin-top: 28px; }
+    code { background: #f3f3f3; padding: 1px 5px; border-radius: 4px; }
+    .updated { color: #666; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Volume Keeper — Privacy Policy</h1>
+  <p class="updated">Last updated: 2026-06-15</p>
+
+  <p>Volume Keeper is a browser extension that lets you boost or lower the audio
+  volume of websites and remembers your chosen level for each site. This policy
+  explains what data the extension does and does not handle.</p>
+
+  <h2>Data we collect</h2>
+  <p><strong>None.</strong> Volume Keeper does not collect, transmit, sell, or share
+  any personal information. There is no analytics, no tracking, no remote server,
+  and no account.</p>
+
+  <h2>Data stored on your device</h2>
+  <p>The extension saves your volume and equalizer preferences locally using the
+  browser's <code>chrome.storage.local</code> API. This data:</p>
+  <ul>
+    <li>stays on your own computer (and syncs only through your own browser if you have Chrome sync enabled);</li>
+    <li>contains only website origins (e.g. <code>https://www.youtube.com</code>) and the volume/EQ values you set;</li>
+    <li>is never sent anywhere by us.</li>
+  </ul>
+  <p>You can erase it at any time by removing the extension or clearing its storage in the browser.</p>
+
+  <h2>Permissions</h2>
+  <ul>
+    <li><strong>storage</strong> — to remember your per-site volume settings.</li>
+    <li><strong>host access to all sites (<code>&lt;all_urls&gt;</code>)</strong> — the extension must run on
+    whichever website you choose to adjust the volume on; it cannot know in advance which sites those are.
+    It only reads and routes audio from media elements on the page and does not read page content or browsing history.</li>
+  </ul>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy can be raised via the extension's listing on the Chrome Web Store
+  or its source repository.</p>
+</body>
+</html>

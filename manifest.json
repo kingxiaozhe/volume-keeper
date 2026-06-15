@@ -6,6 +6,12 @@
   "description": "Boost or lower volume per site — remembers your setting for each website, never breaks fullscreen.",
   "permissions": ["storage"],
   "host_permissions": ["<all_urls>"],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
@@ -16,6 +22,12 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Volume Keeper"
+    "default_title": "Volume Keeper",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
   }
 }
