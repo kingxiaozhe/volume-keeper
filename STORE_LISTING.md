@@ -70,7 +70,12 @@ https://kingxiaozhe.github.io/volume-keeper/privacy.html
 > ⚠️ 私有仓库的 GitHub Pages 需要付费套餐(Pro)。若不想升级:把本仓库设为公开,
 > 或单独建一个公开仓库放 docs/privacy.html。
 
+## 打包说明
+
+- 上传包用 `node src/build-zip.mjs` 生成 → `extensions/volume-keeper-upload.zip`。
+- 该脚本会**自动剥掉 manifest 的 `key` 字段**(CWS 不允许上传含 key 的包),工作副本里的 key 保留(本地测试 ID 稳定)。
+
 ## 还需你自备
 
-- **截图**：≥1 张,1280×800 或 640×400。我已准备一张 popup 效果图(见 store-assets/)。
+- **截图**：≥1 张,1280×800 或 640×400。已备 `store-assets/screenshot-1280x800.png`。
 - 一次性 $5 开发者注册费(你的 Google 账号在 dashboard 完成)。
